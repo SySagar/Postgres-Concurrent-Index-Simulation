@@ -16,19 +16,46 @@ struct User{
 vector<User> table;
 map<string,int> idx;   // fake index
 
+vector<User> pending;
+bool building = false;
+
+void synchronize() {
+
+    cout << "Synchronizing..." << endl;
+
+    for (auto user : pending) {
+        idx[user.name] = user.id;
+    }
+
+    pending.clear();
+}
+
+
 void buildIndex(){
+     building = true;
+
     for(auto user: table){
         idx[user.name] = user.id;
 
           this_thread::sleep_for(chrono::seconds(1)); // simulates millions row transaction scan and indexing - 1 s gap each row
     }
+
+    synchronize();
+
+    building = false;
 }
 
 void insertUser(int id, string name) {
 
-    table.push_back({id, name});
+     User user{id, name};
+
+    table.push_back(user);
 
     cout << "Inserted: " << name << endl;
+
+    if (building) {
+        pending.push_back(user); // remember it as it wasn't caught during scanning
+    }
 }
 
 int main() {
