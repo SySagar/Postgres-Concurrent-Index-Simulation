@@ -5,6 +5,7 @@
 
 #include <thread>
 #include <chrono>
+#include <mutex>
 
 using namespace std;
 
@@ -13,6 +14,8 @@ struct User{
     string name;
 };
 
+mutex mtx;
+
 vector<User> table;
 map<string,int> idx;   // fake index
 
@@ -20,6 +23,8 @@ vector<User> pending;
 bool building = false;
 
 void synchronize() {
+
+    lock_guard<mutex> lock(mtx);
 
     cout << "Synchronizing..." << endl;
 
@@ -32,6 +37,8 @@ void synchronize() {
 
 
 void buildIndex(){
+
+    lock_guard<mutex> lock(mtx); //builder holds the mutex for the entire index build
      building = true;
 
     for(auto user: table){
@@ -46,6 +53,8 @@ void buildIndex(){
 }
 
 void insertUser(int id, string name) {
+
+     lock_guard<mutex> lock(mtx);  // lock mutex -> safely execture -> unlocks
 
      User user{id, name};
 
