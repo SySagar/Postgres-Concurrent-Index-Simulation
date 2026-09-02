@@ -54,13 +54,28 @@ void buildIndex(){
 
     for(auto user: dbSanpshot){
 
+         cout << "Building index for " << user.name << endl;
+
         {
-          lock_guard<mutex> lock(mtx);
+        lock_guard<mutex> lock(mtx);
         idx[user.name] = user.id;
         }
 
           this_thread::sleep_for(chrono::seconds(1)); // simulates millions row transaction scan and indexing - 1 s gap each row
     }
+
+    cout << "Builder waiting..." << endl;
+
+    {
+    unique_lock<mutex> lock(mtx);// cv lock reqires unique lock, not lock_guard - so temporarily release the mutex while waiting
+ 
+    // Wait until all writers are done before synchronizing
+    cv.wait(lock, [] {
+        return activeWriters == 0;
+    });
+
+    cout << "Builder woke up!" << endl;
+}
 
     synchronize();
 
@@ -111,9 +126,10 @@ int main() {
 
     this_thread::sleep_for(chrono::seconds(2));
 
-      insertUser(6, "Frank");
-
-      builder.join();
+    thread writer(insertUser, 6, "Frank");
+     
+    writer.join();
+    builder.join();
 
 
    for (auto entry : idx) {
