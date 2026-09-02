@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <mutex>
+#include <condition_variable>
 
 using namespace std;
 
@@ -15,12 +16,14 @@ struct User{
 };
 
 mutex mtx;
+condition_variable cv;
 
 vector<User> table;
 map<string,int> idx;   // fake index
 
 vector<User> pending;
 bool building = false;
+int activeWriters = 0; //  any writers currently running
 
 void synchronize() {
 
@@ -35,14 +38,26 @@ void synchronize() {
     pending.clear();
 }
 
+vector<User> getCurrentSnapShot(vector<User> &table) {
+    // Return copy of the table with a lock
+    lock_guard<mutex> lock(mtx);
+
+    return table;
+
+}
+
 
 void buildIndex(){
-
-    lock_guard<mutex> lock(mtx); //builder holds the mutex for the entire index build
      building = true;
+    vector<User> dbSanpshot;
+     dbSanpshot = getCurrentSnapShot(table);
 
-    for(auto user: table){
+    for(auto user: dbSanpshot){
+
+        {
+          lock_guard<mutex> lock(mtx);
         idx[user.name] = user.id;
+        }
 
           this_thread::sleep_for(chrono::seconds(1)); // simulates millions row transaction scan and indexing - 1 s gap each row
     }
@@ -54,6 +69,17 @@ void buildIndex(){
 
 void insertUser(int id, string name) {
 
+        {
+            // this ensures new insertions are done, with a lock to prevent race
+        lock_guard<mutex> lock(mtx);
+        activeWriters++;
+        }
+
+         cout << "Writer started: " << name << endl;
+
+        this_thread::sleep_for(chrono::seconds(3));
+
+    {
      lock_guard<mutex> lock(mtx);  // lock mutex -> safely execture -> unlocks
 
      User user{id, name};
@@ -65,6 +91,11 @@ void insertUser(int id, string name) {
     if (building) {
         pending.push_back(user); // remember it as it wasn't caught during scanning
     }
+
+
+        activeWriters--;
+}
+cv.notify_one();
 }
 
 int main() {
