@@ -3,6 +3,7 @@ name: Update cool-stuff
 on:
   push:
     branches:
+      - master
       - main
 
 jobs:
