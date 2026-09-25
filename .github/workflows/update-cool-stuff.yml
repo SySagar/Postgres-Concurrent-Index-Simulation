@@ -1,0 +1,34 @@
+name: Update cool-stuff
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout cool-stuff
+        uses: actions/checkout@v4
+        with:
+          repository: SySagar/cool-stuff
+          token: ${{ secrets.COOL_STUFF_TOKEN }}
+          submodules: true
+
+      - name: Update postgres-concurrent-indexing submodule
+        run: |
+          git submodule update --remote postgres-concurrent-indexing
+
+      - name: Commit update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add postgres-concurrent-indexing
+          git diff --cached --quiet || git commit -m "chore: update postgres-concurrent-indexing submodule"
+
+      - name: Push update
+        run: |
+          git push
