@@ -5,21 +5,6 @@ import (
 	"time"
 )
 
-// synchronize merges pending entries into the index(second scan)
-// Called after the index builder has finished scanning the snapshot(first scan) and
-// all writers have completed their current transactions.
-func synchronize() {
-	mtx.Lock()
-	defer mtx.Unlock()
-
-	fmt.Println("Synchronizing...")
-	for _, user := range pending {
-		idx[user.Name] = user.ID
-	}
-	// Clear the pending list (equivalent to pending.clear() in C++).
-	pending = nil
-}
-
 func hasActiveTransactionsLocked(excludeTxID int) bool {
 	/*
 	   Checks for any pending transaction befor completing the scan.
@@ -44,13 +29,11 @@ func hasActiveTransactionsLocked(excludeTxID int) bool {
 // }
 
 // buildIndex builds the fake index by:
-//  1. Taking a snapshot of the current table.
-//  2. Scanning every row in the snapshot and inserting it into idx (with a
-//     1-second delay per row to simulate a huge table scan).
-//  3. Waiting until all writers have finished (activeWriters == 0).
-//  4. Merging any rows that were inserted during the build (synchronize).
-//
-// Equivalent to the C++ buildIndex().
+// 1. Starting an indexing transaction.
+// 2. Taking a snapshot and performing the first scan.
+// 3. Waiting for concurrent transactions to finish.
+// 4. Taking a new snapshot and performing a second scan.
+// 5. Completing the index build.
 func buildIndex() {
 
 	tx := beginTransaction() // as indexing is also a transaction - as per postgres documentation
@@ -62,8 +45,17 @@ func buildIndex() {
 	// snapshot the current table.
 	dbSnapshot := getCurrentSnapShot()
 
+	mtx.Lock()
+	tableCopy := make([]User, len(table))
+	copy(tableCopy, table)
+	mtx.Unlock()
+
 	//index every row from the snapshot.
-	for _, user := range dbSnapshot {
+	for _, user := range tableCopy {
+
+		if !dbSnapshot.IsVisible(user) {
+			continue
+		}
 
 		fmt.Printf(
 			"Building index for %s (Tx %d)\n",
@@ -73,6 +65,7 @@ func buildIndex() {
 
 		mtx.Lock()
 		idx[user.Name] = user.ID
+		indexedRows[user.ID] = true
 		mtx.Unlock()
 
 		// Simulate the time needed to scan & index millions of rows.
@@ -95,8 +88,34 @@ func buildIndex() {
 
 	mtx.Unlock()
 
-	// merge pending writes into the index.
-	synchronize()
+	// second scan to merge any pending writes into the index. This is done after all writers have completed their concurrent transactions.
+	secondSnapshot := getCurrentSnapShot()
+
+	mtx.Lock()
+	secondTableCopy := make([]User, len(table))
+	copy(secondTableCopy, table)
+	mtx.Unlock()
+
+	for _, user := range secondTableCopy {
+		if !secondSnapshot.IsVisible(user) {
+			continue
+		}
+
+		mtx.Lock()
+
+		if !indexedRows[user.ID] {
+			fmt.Printf(
+				"Second scan: indexing %s (ID %d)\n",
+				user.Name,
+				user.ID,
+			)
+
+			idx[user.Name] = user.ID
+			indexedRows[user.ID] = true
+		}
+
+		mtx.Unlock()
+	}
 
 	mtx.Lock()
 	building = false

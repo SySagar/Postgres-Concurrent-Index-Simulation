@@ -6,14 +6,28 @@ import (
 )
 
 // getCurrentSnapShot returns a copy of the table under a lock.
-func getCurrentSnapShot() []User {
+func getCurrentSnapShot() Snapshot {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	// slices the table and copies it into snap
-	snap := make([]User, len(table))
-	copy(snap, table)
-	return snap
+	committed := make(map[int]bool)
+
+	for id, tx := range transactions {
+		if tx.State == TxCommitted {
+			committed[id] = true
+		}
+	}
+
+	// Initial rows are always visible in our simulator.
+	committed[0] = true
+
+	return Snapshot{
+		committedTxIDs: committed,
+	}
+}
+
+func (s Snapshot) IsVisible(user User) bool {
+	return s.committedTxIDs[user.CreatedBy]
 }
 
 // insertUser simulates a write transaction: inserts a new user into the table.
@@ -32,8 +46,9 @@ func insertUser(id int, name string) {
 	mtx.Lock()
 
 	user := User{
-		ID:   id,
-		Name: name,
+		ID:        id,
+		Name:      name,
+		CreatedBy: tx.ID,
 	}
 
 	table = append(table, user)

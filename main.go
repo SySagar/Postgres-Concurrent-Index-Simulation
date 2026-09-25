@@ -7,13 +7,13 @@ import (
 )
 
 func main() {
-	// Seed the table with initial data.
-	table = append(table, User{1, "Alice"})
-	table = append(table, User{2, "Bob"})
-	table = append(table, User{3, "Charlie"})
-	table = append(table, User{3, "Charlie"})
-	table = append(table, User{4, "David"})
-	table = append(table, User{5, "Eve"})
+	// Seed the table with initial data. pre-existing data that is visible to everyone.
+	table = append(table, User{1, "Alice", 0})
+	table = append(table, User{2, "Bob", 0})
+	table = append(table, User{3, "Charlie", 0})
+	table = append(table, User{4, "Charlie", 0})
+	table = append(table, User{5, "David", 0})
+	table = append(table, User{6, "Eve", 0})
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -30,7 +30,7 @@ func main() {
 	// Start a writer that inserts "Frank" (6, "Frank").
 	go func() {
 		defer wg.Done()
-		insertUser(6, "Frank")
+		insertUser(7, "Frank")
 	}()
 
 	// Wait for both goroutines to finish (like writer.join(); builder.join()).
