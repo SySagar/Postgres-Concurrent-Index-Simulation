@@ -8,16 +8,32 @@ type User struct {
 	Name string
 }
 
-// Global shared state 
-var (
-	mtx  sync.Mutex
-	cv   = sync.NewCond(&mtx)
+type TransactionState string
 
-	table []User               // the "table" (heap storage)
+const (
+	TxActive    TransactionState = "ACTIVE"
+	TxCommitted TransactionState = "COMMITTED"
+)
+
+type Transaction struct {
+	ID    int
+	State TransactionState
+}
+
+// Global shared state
+var (
+	mtx sync.Mutex
+	cv  = sync.NewCond(&mtx)
+
+	table []User                 // the "table" (heap storage)
 	idx   = make(map[string]int) // fake index on User.Name
 
-	pending []User // rows inserted while the index was being built
-	building bool  // is an index build currently running?
+	pending  []User // rows inserted while the index was being built
+	building bool   // is an index build currently running?
 
-	activeWriters int // number of writers that have started but not yet committed
+	// activeWriters int // number of writers that have started but not yet committed
+
+	//transactions
+	nextTxId     int = 1
+	transactions     = make(map[int]*Transaction)
 )

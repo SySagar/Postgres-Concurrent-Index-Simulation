@@ -20,6 +20,29 @@ func synchronize() {
 	pending = nil
 }
 
+func hasActiveTransactionsLocked(excludeTxID int) bool {
+	/*
+	   Checks for any pending transaction befor completing the scan.
+	*/
+	for _, tx := range transactions {
+		if tx.ID != excludeTxID && tx.State == TxActive {
+			return true
+		}
+	}
+
+	return false
+}
+
+// func hasPendingActiveTransactions(excludeTxID int) bool {
+// 	/* helper function as we cannot call hasActiveTransactionsLocked() on previous transactions as
+// 	it has a lock on mtx and we cannot call it on the same lock as it will cause a deadlock. */
+
+// 	mtx.Lock()
+// 	defer mtx.Unlock()
+
+// 	return hasActiveTransactionsLocked(excludeTxID)
+// }
+
 // buildIndex builds the fake index by:
 //  1. Taking a snapshot of the current table.
 //  2. Scanning every row in the snapshot and inserting it into idx (with a
@@ -29,6 +52,9 @@ func synchronize() {
 //
 // Equivalent to the C++ buildIndex().
 func buildIndex() {
+
+	tx := beginTransaction() // as indexing is also a transaction - as per postgres documentation
+
 	mtx.Lock()
 	building = true
 	mtx.Unlock()
@@ -38,7 +64,12 @@ func buildIndex() {
 
 	//index every row from the snapshot.
 	for _, user := range dbSnapshot {
-		fmt.Printf("Building index for %s\n", user.Name)
+
+		fmt.Printf(
+			"Building index for %s (Tx %d)\n",
+			user.Name,
+			tx.ID,
+		)
 
 		mtx.Lock()
 		idx[user.Name] = user.ID
@@ -54,10 +85,14 @@ func buildIndex() {
 	// cv.Wait() atomically releases the mutex and blocks; when woken
 	// (by cv.Signal()), it re-acquires the mutex.
 	mtx.Lock()
-	for activeWriters > 0 {
+
+	for hasActiveTransactionsLocked(tx.ID) {
+		fmt.Println("Builder waiting for active transactions...")
 		cv.Wait()
 	}
+
 	fmt.Println("Builder woke up!")
+
 	mtx.Unlock()
 
 	// merge pending writes into the index.
@@ -66,4 +101,6 @@ func buildIndex() {
 	mtx.Lock()
 	building = false
 	mtx.Unlock()
+
+	commitTransaction(tx)
 }
