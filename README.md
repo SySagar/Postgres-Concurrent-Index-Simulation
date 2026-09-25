@@ -4,7 +4,7 @@ A minimal Go simulation of **PostgreSQL's `CREATE INDEX CONCURRENTLY`** mechanis
 
 ## The Problem
 
-In PostgreSQL, the standard `CREATE INDEX` command takes an `ACCESS EXCLUSIVE` lock on the table, which **blocks all concurrent inserts, updates, and deletes** for the duration of the index build. On large tables this can mean minutes or hours of downtime for writes.
+In PostgreSQL, the standard `CREATE INDEX` command takes an `ACCESS EXCLUSIVE` lock on the table, which **blocks all concurrent inserts, updates, and deletes** for the duration of the index build. On large tables this can mean minutes or hours of downtime for writes for millions of requests.
 
 This simulation demonstrates how `CREATE INDEX CONCURRENTLY` solves that: it builds the index in **two-phase scan** while allowing concurrent transactions to proceed normally.
 
