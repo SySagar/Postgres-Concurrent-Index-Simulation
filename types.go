@@ -30,12 +30,12 @@ var (
 	mtx sync.Mutex
 	cv  = sync.NewCond(&mtx)
 
-	table       []User                 // the "table" (heap storage)
-	idx         = make(map[string]int) // fake index on User.Name
-	indexedRows = make(map[int]bool)   // rows that have been indexed (ID)
+	table       []User                   // the "table" (heap storage)
+	idx         = make(map[string][]int) // fake index on User.Name, preserving multiple row IDs per name
+	indexedRows = make(map[int]bool)     // rows that have been indexed (ID)
 
-	pending  []User // rows inserted while the index was being built
-	building bool   // is an index build currently running?
+	// pending  []User // rows inserted while the index was being built
+	building bool // is an index build currently running?
 
 	// activeWriters int // number of writers that have started but not yet committed
 

@@ -38,7 +38,7 @@ func main() {
 
 	// Print the final index.
 	fmt.Println("\nFinal index:")
-	for name, id := range idx {
-		fmt.Printf("%s -> %d\n", name, id)
+	for name, ids := range idx {
+		fmt.Printf("%s -> %v\n", name, ids)
 	}
 }

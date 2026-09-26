@@ -64,7 +64,7 @@ func buildIndex() {
 		)
 
 		mtx.Lock()
-		idx[user.Name] = user.ID
+		idx[user.Name] = append(idx[user.Name], user.ID)
 		indexedRows[user.ID] = true
 		mtx.Unlock()
 
@@ -110,7 +110,7 @@ func buildIndex() {
 				user.ID,
 			)
 
-			idx[user.Name] = user.ID
+			idx[user.Name] = append(idx[user.Name], user.ID)
 			indexedRows[user.ID] = true
 		}
 

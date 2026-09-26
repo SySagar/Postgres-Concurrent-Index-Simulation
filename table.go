@@ -54,10 +54,6 @@ func insertUser(id int, name string) {
 	table = append(table, user)
 	fmt.Printf("Inserted: %s\n", name)
 
-	if building {
-		pending = append(pending, user) // remember for later index sync
-	}
-
 	mtx.Unlock()
 
 	commitTransaction(tx)
